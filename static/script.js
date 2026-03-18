@@ -1,7 +1,7 @@
 /**
- * WhatsApp Bulk Messenger — Web App Logic
- * Uses wa.me URL scheme + Flask backend for CSV processing.
- * PWA-enabled: installable on phones and desktops.
+ * WhatsApp Bulk Messenger — Frontend Logic
+ * Talks to Flask backend which uses Selenium to auto-send messages.
+ * Progress is streamed via Server-Sent Events (SSE).
  */
 (() => {
     "use strict";
@@ -23,21 +23,15 @@
     const statusLog      = document.getElementById("status-log");
     const toastEl        = document.getElementById("toast");
     const delayInput     = document.getElementById("delay-input");
-    const countdownEl    = document.getElementById("countdown");
-    const countdownNum   = document.getElementById("countdown-num");
-    const installBanner  = document.getElementById("install-banner");
-    const installBtn     = document.getElementById("install-btn");
-    const installClose   = document.getElementById("install-close");
     const statSent       = document.getElementById("stat-sent");
     const statFailed     = document.getElementById("stat-failed");
     const statTotal      = document.getElementById("stat-total");
+    const installBanner  = document.getElementById("install-banner");
+    const installBtn     = document.getElementById("install-btn");
+    const installClose   = document.getElementById("install-close");
 
     let phoneNumbers = [];
-    let isSending    = false;
-    let isPaused     = false;
-    let shouldStop   = false;
-    let successCount = 0;
-    let failCount    = 0;
+    let eventSource  = null;
 
     // ── PWA Install ──────────────────────────────────────────
     let deferredPrompt = null;
@@ -53,21 +47,16 @@
             if (!deferredPrompt) return;
             deferredPrompt.prompt();
             const result = await deferredPrompt.userChoice;
-            if (result.outcome === "accepted") {
-                showToast("App installed! 🎉", "success");
-            }
+            if (result.outcome === "accepted") showToast("App installed! 🎉", "success");
             deferredPrompt = null;
             installBanner.classList.remove("visible");
         });
     }
 
     if (installClose) {
-        installClose.addEventListener("click", () => {
-            installBanner.classList.remove("visible");
-        });
+        installClose.addEventListener("click", () => installBanner.classList.remove("visible"));
     }
 
-    // Register Service Worker
     if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
             navigator.serviceWorker.register("/sw.js").catch(() => {});
@@ -86,16 +75,18 @@
 
     // ── Manual entry parsing ──────────────────────────────────
     numbersInput.addEventListener("input", () => {
-        const raw = numbersInput.value;
-        const nums = raw
+        const nums = numbersInput.value
             .split(/[\n,;]+/)
             .map(n => n.trim().replace(/[\s\-\+\(\)]/g, ""))
             .filter(n => n && /^\d{7,15}$/.test(n));
         setNumbers(nums);
     });
 
-    // ── CSV upload (uses Flask backend) ──────────────────────
-    csvInput.addEventListener("change", handleCSV);
+    // ── CSV upload (via Flask backend) ────────────────────────
+    csvInput.addEventListener("change", () => {
+        const file = csvInput.files[0];
+        if (file) uploadCSVFile(file);
+    });
 
     uploadZone.addEventListener("dragover", e => { e.preventDefault(); uploadZone.classList.add("dragover"); });
     uploadZone.addEventListener("dragleave", () => uploadZone.classList.remove("dragover"));
@@ -103,77 +94,35 @@
         e.preventDefault();
         uploadZone.classList.remove("dragover");
         const file = e.dataTransfer.files[0];
-        if (file && file.name.endsWith(".csv")) {
-            uploadCSVFile(file);
-        } else {
-            showToast("Please drop a .csv file", "error");
-        }
+        if (file && file.name.endsWith(".csv")) uploadCSVFile(file);
+        else showToast("Please drop a .csv file", "error");
     });
 
-    function handleCSV() {
-        const file = csvInput.files[0];
-        if (!file) return;
-        uploadCSVFile(file);
-    }
-
     function uploadCSVFile(file) {
-        const formData = new FormData();
-        formData.append("file", file);
-        fetch("/upload-csv", { method: "POST", body: formData })
+        const fd = new FormData();
+        fd.append("file", file);
+        fetch("/upload-csv", { method: "POST", body: fd })
             .then(r => r.json())
             .then(data => {
-                if (data.error) {
-                    showToast(data.error, "error");
-                    return;
-                }
+                if (data.error) { showToast(data.error, "error"); return; }
                 setNumbers(data.numbers);
                 showToast(`Loaded ${data.count} numbers from CSV`, "success");
             })
-            .catch(() => {
-                // Fallback: parse CSV client-side if server is unavailable
-                parseCSVLocally(file);
-            });
-    }
-
-    function parseCSVLocally(file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const text = e.target.result;
-                const numbers = [];
-                const rows = text.split(/\r?\n/);
-                for (const row of rows) {
-                    const cells = row.split(/[,;\t]/);
-                    for (const cell of cells) {
-                        const cleaned = cell.trim().replace(/["']/g, "").replace(/[\s\-\+\(\)]/g, "");
-                        if (cleaned && /^\d{7,15}$/.test(cleaned)) {
-                            numbers.push(cleaned);
-                        }
-                    }
-                }
-                const unique = [...new Set(numbers)];
-                setNumbers(unique);
-                showToast(`Loaded ${unique.length} numbers from CSV`, "success");
-            } catch (err) {
-                showToast("Failed to parse CSV: " + err.message, "error");
-            }
-        };
-        reader.onerror = () => showToast("Failed to read file", "error");
-        reader.readAsText(file, "utf-8");
+            .catch(() => showToast("Failed to upload CSV", "error"));
     }
 
     // ── Number management ─────────────────────────────────────
     function setNumbers(nums) {
         phoneNumbers = [...new Set(nums)];
         renderChips();
-        updateStats();
+        updateStats(0, 0);
         saveState();
     }
 
     function removeNumber(index) {
         phoneNumbers.splice(index, 1);
         renderChips();
-        updateStats();
+        updateStats(0, 0);
         saveState();
     }
 
@@ -188,37 +137,27 @@
         chipsSummary.textContent = phoneNumbers.length
             ? `${phoneNumbers.length} number${phoneNumbers.length > 1 ? "s" : ""} ready`
             : "";
-
         chipsContainer.querySelectorAll(".chip__remove").forEach(btn => {
             btn.addEventListener("click", () => removeNumber(+btn.dataset.index));
         });
     }
 
-    function updateStats() {
+    function updateStats(sent, failed) {
         if (statTotal) statTotal.textContent = phoneNumbers.length;
-        if (statSent) statSent.textContent = successCount;
-        if (statFailed) statFailed.textContent = failCount;
+        if (statSent) statSent.textContent = sent;
+        if (statFailed) statFailed.textContent = failed;
     }
 
-    // ── Send ──────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════
+    //  SEND — calls Flask /send endpoint, listens to SSE
+    // ══════════════════════════════════════════════════════════
+
     sendBtn.addEventListener("click", startSending);
 
-    async function startSending() {
-        if (!phoneNumbers.length) {
-            showToast("Add at least one phone number", "error");
-            return;
-        }
+    function startSending() {
+        if (!phoneNumbers.length) { showToast("Add at least one phone number", "error"); return; }
         const message = messageInput.value.trim();
-        if (!message) {
-            showToast("Enter a message to send", "error");
-            return;
-        }
-
-        isSending = true;
-        isPaused = false;
-        shouldStop = false;
-        successCount = 0;
-        failCount = 0;
+        if (!message) { showToast("Enter a message to send", "error"); return; }
 
         sendBtn.disabled = true;
         pauseBtn.style.display = "inline-flex";
@@ -228,112 +167,85 @@
         statusLog.innerHTML = "";
         progressBar.style.width = "0%";
 
-        const delay = Math.max(2, Math.min(30, parseInt(delayInput.value) || 5)) * 1000;
-        const total = phoneNumbers.length;
-        const encodedMsg = encodeURIComponent(message);
+        // Connect SSE first
+        connectSSE();
 
-        addLog("🚀 Sending started …", "log-success");
-
-        for (let i = 0; i < total; i++) {
-            if (shouldStop) {
-                addLog("🛑 Sending stopped by user.", "log-error");
-                break;
+        // Start sending via Flask backend
+        fetch("/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ numbers: phoneNumbers, message }),
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) {
+                showToast(data.error, "error");
+                resetUI();
+            } else {
+                addLog("🚀 Sending request sent to server …", "log-success");
             }
-
-            while (isPaused && !shouldStop) {
-                await sleep(300);
-            }
-            if (shouldStop) {
-                addLog("🛑 Sending stopped by user.", "log-error");
-                break;
-            }
-
-            const number = phoneNumbers[i];
-            const current = i + 1;
-
-            const pct = Math.round((current / total) * 100);
-            progressBar.style.width = pct + "%";
-            addLog(`📤 (${current}/${total}) Opening WhatsApp for ${number} …`);
-
-            try {
-                const url = `https://wa.me/${number}?text=${encodedMsg}`;
-                const newTab = window.open(url, '_blank');
-
-                if (newTab) {
-                    successCount++;
-                    addLog(`✅ Opened chat for ${number} — click Send in WhatsApp`, "log-success");
-                } else {
-                    failCount++;
-                    addLog(`❌ Pop-up blocked for ${number}. Allow pop-ups and retry.`, "log-error");
-                    showToast("Pop-up blocked! Please allow pop-ups for this page.", "error");
-                    await sleep(3000);
-                }
-            } catch (err) {
-                failCount++;
-                addLog(`❌ Error for ${number}: ${err.message}`, "log-error");
-            }
-
-            updateStats();
-
-            if (i < total - 1 && !shouldStop) {
-                await countdownDelay(delay);
-            }
-        }
-
-        const summary = `Finished! Opened: ${successCount} | Failed: ${failCount} | Total: ${total}`;
-        addLog(`🏁 ${summary}`, "log-success");
-        showToast(summary, "success");
-        updateStats();
-        resetUI();
-    }
-
-    function countdownDelay(ms) {
-        return new Promise(resolve => {
-            const seconds = Math.ceil(ms / 1000);
-            let remaining = seconds;
-            countdownEl.classList.add("visible");
-            countdownNum.textContent = remaining;
-
-            const interval = setInterval(() => {
-                if (shouldStop || !isSending) {
-                    clearInterval(interval);
-                    countdownEl.classList.remove("visible");
-                    resolve();
-                    return;
-                }
-                remaining--;
-                countdownNum.textContent = Math.max(0, remaining);
-                if (remaining <= 0) {
-                    clearInterval(interval);
-                    countdownEl.classList.remove("visible");
-                    resolve();
-                }
-            }, 1000);
+        })
+        .catch(() => {
+            showToast("Could not reach the server. Is it running?", "error");
+            resetUI();
         });
-    }
-
-    function sleep(ms) {
-        return new Promise(r => setTimeout(r, ms));
     }
 
     // ── Pause ─────────────────────────────────────────────────
     pauseBtn.addEventListener("click", () => {
-        if (isPaused) {
-            isPaused = false;
-            pauseBtn.innerHTML = "⏸ Pause";
-            addLog("▶️ Resumed sending", "log-warn");
-        } else {
-            isPaused = true;
-            pauseBtn.innerHTML = "▶️ Resume";
-            addLog("⏸ Paused — click Resume to continue", "log-warn");
-        }
+        fetch("/pause", { method: "POST" })
+            .then(r => r.json())
+            .then(data => {
+                if (data.paused) {
+                    pauseBtn.innerHTML = "▶️ Resume";
+                    addLog("⏸ Paused — click Resume to continue", "log-warn");
+                } else {
+                    pauseBtn.innerHTML = "⏸ Pause";
+                    addLog("▶️ Resumed sending", "log-warn");
+                }
+            })
+            .catch(() => showToast("Failed to pause/resume", "error"));
     });
 
     // ── Stop ──────────────────────────────────────────────────
     stopBtn.addEventListener("click", () => {
-        shouldStop = true;
-        showToast("Stopping after current message …", "error");
+        fetch("/stop", { method: "POST" })
+            .then(() => {
+                showToast("Stopping after current message …", "error");
+            })
+            .catch(() => showToast("Failed to stop", "error"));
     });
+
+    // ── SSE (Server-Sent Events for real-time progress) ──────
+    function connectSSE() {
+        if (eventSource) eventSource.close();
+        eventSource = new EventSource("/status");
+
+        eventSource.addEventListener("log", e => {
+            const data = JSON.parse(e.data);
+            addLog(data.message);
+        });
+
+        eventSource.addEventListener("progress", e => {
+            const data = JSON.parse(e.data);
+            const pct = Math.round((data.current / data.total) * 100);
+            progressBar.style.width = pct + "%";
+            addLog(data.message);
+            if (data.success !== undefined) updateStats(data.success, data.failed);
+        });
+
+        eventSource.addEventListener("done", e => {
+            const data = JSON.parse(e.data);
+            addLog(data.message, "log-success");
+            showToast(data.message, "success");
+            if (data.success !== undefined) updateStats(data.success, data.failed);
+            progressBar.style.width = "100%";
+            resetUI();
+            if (eventSource) { eventSource.close(); eventSource = null; }
+        });
+
+        eventSource.onerror = () => { /* SSE auto-reconnects */ };
+    }
 
     // ── Helpers ───────────────────────────────────────────────
     function addLog(msg, className = "") {
@@ -345,14 +257,11 @@
     }
 
     function resetUI() {
-        isSending = false;
-        isPaused = false;
-        shouldStop = false;
         sendBtn.disabled = false;
+        sendBtn.innerHTML = "🚀 Start Sending";
         pauseBtn.style.display = "none";
         stopBtn.style.display = "none";
         pauseBtn.innerHTML = "⏸ Pause";
-        countdownEl.classList.remove("visible");
     }
 
     function showToast(msg, type = "") {
@@ -386,12 +295,11 @@
             }
             if (state.message) messageInput.value = state.message;
             if (state.delay) delayInput.value = state.delay;
-            updateStats();
+            updateStats(0, 0);
         } catch (e) {}
     }
 
     messageInput.addEventListener("input", saveState);
     delayInput.addEventListener("change", saveState);
-
     restoreState();
 })();
