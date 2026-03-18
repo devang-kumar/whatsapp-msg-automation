@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="description" content="WhatsApp Bulk Messenger — send messages to multiple contacts easily. Free, fast, and private. No installation required.">
+    <meta name="theme-color" content="#25D366">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="WA Messenger">
+
+    <meta property="og:title" content="WhatsApp Bulk Messenger">
+    <meta property="og:description" content="Send messages to multiple WhatsApp contacts in one go. Free, fast, and private.">
+    <meta property="og:type" content="website">
+
+    <title>WhatsApp Bulk Messenger — Send Messages at Scale</title>
+
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💬</text></svg>">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-192.png') }}">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- PWA Install Banner -->
+        <div id="install-banner" class="install-banner">
+            <div class="install-banner__text">
+                <span>📲</span>
+                <div>Install this app on your device for quick access — works offline!</div>
+            </div>
+            <button id="install-btn" class="install-banner__btn">Install App</button>
+            <button id="install-close" class="install-banner__close">&times;</button>
+        </div>
+
+        <!-- Header -->
+        <header class="header">
+            <span class="header__icon">💬</span>
+            <h1>WhatsApp Bulk Messenger</h1>
+            <p>Send messages to multiple contacts in one go</p>
+            <div class="header__badges">
+                <span class="header__badge">✨ Zero Install — Just Open & Use</span>
+                <span class="header__badge">📲 Installable as App</span>
+                <span class="header__badge">🔒 100% Private</span>
+            </div>
+        </header>
+
+        <!-- Stats Strip -->
+        <div class="stats-strip">
+            <div class="stat-card">
+                <div class="stat-card__value" id="stat-total">0</div>
+                <div class="stat-card__label">Contacts</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card__value" id="stat-sent">0</div>
+                <div class="stat-card__label">Sent</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card__value" id="stat-failed">0</div>
+                <div class="stat-card__label">Failed</div>
+            </div>
+        </div>
+
+        <!-- How it works -->
+        <div class="info-banner">
+            <span class="info-banner__icon">💡</span>
+            <div>
+                <strong>How it works:</strong>
+                <ol>
+                    <li>Add phone numbers (with country code) manually or via CSV</li>
+                    <li>Type your message</li>
+                    <li>Click <strong>Start Sending</strong> — each contact opens in WhatsApp with your message pre-filled</li>
+                    <li>Hit <strong>Enter</strong> or click Send in WhatsApp to deliver each message</li>
+                </ol>
+            </div>
+        </div>
+
+        <!-- Phone Numbers Card -->
+        <section class="card">
+            <div class="card__title"><span>📱</span> Phone Numbers</div>
+
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="tab-manual" id="tab-btn-manual">Manual Entry</button>
+                <button class="tab-btn" data-tab="tab-csv" id="tab-btn-csv">Upload CSV</button>
+            </div>
+
+            <!-- Manual Entry -->
+            <div id="tab-manual" class="tab-panel active">
+                <textarea
+                    id="numbers-input"
+                    placeholder="Enter phone numbers (with country code)&#10;One per line or comma-separated&#10;e.g. 919876543210, 14155552671"
+                ></textarea>
+            </div>
+
+            <!-- CSV Upload -->
+            <div id="tab-csv" class="tab-panel">
+                <div class="upload-zone" id="upload-zone">
+                    <input type="file" id="csv-input" accept=".csv">
+                    <div class="upload-zone__icon">📁</div>
+                    <div class="upload-zone__text">Click or drag &amp; drop a CSV file</div>
+                    <div class="upload-zone__hint">Numbers will be extracted from all columns automatically</div>
+                </div>
+            </div>
+
+            <!-- Chips preview -->
+            <div id="chips-container" class="chips-container"></div>
+            <div id="chips-summary" class="chips-summary"></div>
+        </section>
+
+        <!-- Message Card -->
+        <section class="card">
+            <div class="card__title"><span>✉️</span> Message</div>
+            <textarea
+                id="message-input"
+                placeholder="Type your message here …"
+            ></textarea>
+        </section>
+
+        <!-- Settings Card -->
+        <section class="card">
+            <div class="card__title"><span>⚙️</span> Settings</div>
+            <div class="settings-row">
+                <div class="setting-item">
+                    <label for="delay-input">Delay between messages:</label>
+                    <input type="number" id="delay-input" value="5" min="2" max="30">
+                    <span class="unit">seconds</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Progress & Status Card -->
+        <section class="card">
+            <div class="card__title"><span>📊</span> Status</div>
+
+            <div id="progress-wrap" class="progress-wrap">
+                <div id="progress-bar" class="progress-bar"></div>
+            </div>
+
+            <div id="countdown" class="countdown">Next message in <span id="countdown-num">0</span>s …</div>
+
+            <div id="status-log" class="status-log"></div>
+
+            <div class="controls">
+                <button id="send-btn" class="btn btn--primary">🚀 Start Sending</button>
+                <button id="pause-btn" class="btn btn--warning" style="display:none;">⏸ Pause</button>
+                <button id="stop-btn" class="btn btn--danger" style="display:none;">🛑 Stop</button>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>WhatsApp Bulk Messenger — Free &amp; open source. Not affiliated with WhatsApp or Meta.</p>
+            <p style="margin-top: 0.35rem;">Powered by Python &amp; Flask 🐍</p>
+        </footer>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="toast"></div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
