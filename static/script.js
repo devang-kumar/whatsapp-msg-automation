@@ -34,6 +34,45 @@
     let phoneNumbers = [];
     let eventSource  = null;
 
+    // ── QR / Screenshot ──────────────────────────────────
+    const openWaBtn    = document.getElementById("open-wa-btn");
+    const refreshQrBtn = document.getElementById("refresh-qr-btn");
+    const qrWrap       = document.getElementById("qr-wrap");
+    const qrImg        = document.getElementById("qr-img");
+    const qrTs         = document.getElementById("qr-ts");
+
+    function loadScreenshot() {
+        const ts = Date.now();
+        qrImg.src = `/screenshot?t=${ts}`;
+        qrWrap.style.display = "block";
+        qrTs.textContent = "Screenshot taken at " + new Date().toLocaleTimeString();
+    }
+
+    if (openWaBtn) {
+        openWaBtn.addEventListener("click", () => {
+            openWaBtn.disabled = true;
+            openWaBtn.textContent = "⏳ Opening…";
+            fetch("/screenshot")
+                .then(r => {
+                    if (r.ok) {
+                        loadScreenshot();
+                        showToast("Browser opened — scan the QR code", "success");
+                    } else {
+                        showToast("Failed to open browser", "error");
+                    }
+                })
+                .catch(() => showToast("Could not reach server", "error"))
+                .finally(() => {
+                    openWaBtn.disabled = false;
+                    openWaBtn.textContent = "🌐 Open WhatsApp";
+                });
+        });
+    }
+
+    if (refreshQrBtn) {
+        refreshQrBtn.addEventListener("click", loadScreenshot);
+    }
+
     // ── PWA Install ──────────────────────────────────────────
     let deferredPrompt = null;
 

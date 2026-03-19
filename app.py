@@ -478,6 +478,21 @@ def status_stream():
     return Response(event_stream(), content_type="text/event-stream")
 
 
+@app.route("/screenshot")
+def screenshot():
+    """Take a screenshot of the current browser state (for QR code scanning)."""
+    try:
+        drv = get_or_create_driver()
+        # If not on WhatsApp Web, navigate there
+        if "web.whatsapp.com" not in drv.current_url:
+            drv.get("https://web.whatsapp.com")
+            time.sleep(3)
+        png = drv.get_screenshot_as_png()
+        return Response(png, mimetype="image/png")
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/health")
 def health():
     return jsonify({"status": "ok", "app": "WhatsApp Bulk Messenger"})

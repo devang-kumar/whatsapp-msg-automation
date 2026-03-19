@@ -79,6 +79,22 @@
             </div>
         </div>
 
+        <!-- QR Code Scanner Panel -->
+        <section class="card" id="qr-card">
+            <div class="card__title"><span>📷</span> WhatsApp Login (QR Code)</div>
+            <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:1rem;">
+                Click "Open WhatsApp" to launch the browser on the server, then refresh the screenshot to scan the QR code with your phone.
+            </p>
+            <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:1rem;">
+                <button id="open-wa-btn" class="btn btn--primary" style="width:auto;padding:0.6rem 1.25rem;font-size:0.88rem;">🌐 Open WhatsApp</button>
+                <button id="refresh-qr-btn" class="btn btn--reset">🔄 Refresh Screenshot</button>
+            </div>
+            <div id="qr-wrap" style="display:none;text-align:center;">
+                <img id="qr-img" src="" alt="WhatsApp Screenshot" style="max-width:100%;border-radius:8px;border:1px solid var(--border);">
+                <p style="font-size:0.75rem;color:var(--text-muted);margin-top:0.5rem;" id="qr-ts"></p>
+            </div>
+        </section>
+
         <!-- Phone Numbers Card -->
         <section class="card">
             <div class="card__title"><span>📱</span> Phone Numbers</div>
