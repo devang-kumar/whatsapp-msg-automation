@@ -29,6 +29,7 @@
     const installBanner  = document.getElementById("install-banner");
     const installBtn     = document.getElementById("install-btn");
     const installClose   = document.getElementById("install-close");
+    const resetBtn       = document.getElementById("reset-btn");
 
     let phoneNumbers = [];
     let eventSource  = null;
@@ -306,4 +307,40 @@
     messageInput.addEventListener("input", saveState);
     delayInput.addEventListener("change", saveState);
     restoreState();
+
+    // ── Session health check on load ─────────────────────
+    fetch("/session-status")
+        .then(r => r.json())
+        .then(data => {
+            if (data.is_sending) {
+                // Real session running — reconnect SSE
+                sendBtn.disabled = true;
+                pauseBtn.style.display = "inline-flex";
+                stopBtn.style.display = "inline-flex";
+                progressWrap.classList.add("visible");
+                statusLog.classList.add("visible");
+                connectSSE();
+                addLog("🔄 Reconnected to active session …", "log-warn");
+            } else {
+                // No session — make sure UI is clean
+                resetUI();
+            }
+        })
+        .catch(() => {});
+
+    // ── Reset stuck session ───────────────────────────────
+    if (resetBtn) {
+        resetBtn.addEventListener("click", () => {
+            fetch("/reset", { method: "POST" })
+                .then(r => r.json())
+                .then(() => {
+                    resetUI();
+                    if (eventSource) { eventSource.close(); eventSource = null; }
+                    statusLog.innerHTML = "";
+                    progressBar.style.width = "0%";
+                    showToast("Session reset. Ready to send again.", "success");
+                })
+                .catch(() => showToast("Failed to reset session", "error"));
+        });
+    }
 })();

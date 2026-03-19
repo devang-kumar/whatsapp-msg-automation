@@ -428,6 +428,36 @@ def stop_sending():
     return jsonify({"status": "stopping"})
 
 
+@app.route("/reset", methods=["POST"])
+def reset_session():
+    """Force-reset all session state. Use when stuck in 'session in progress'."""
+    global is_sending, should_stop, is_paused, send_thread, driver
+    should_stop = True
+    is_sending = False
+    is_paused = False
+    send_thread = None
+    # Also kill the browser so next attempt starts fresh
+    with driver_lock:
+        if driver:
+            try:
+                driver.quit()
+            except Exception:
+                pass
+            driver = None
+    return jsonify({"status": "reset", "message": "Session cleared."})
+
+
+@app.route("/session-status")
+def session_status():
+    """Returns whether a send session is currently active."""
+    alive = is_sending and send_thread is not None and send_thread.is_alive()
+    # Auto-heal: thread died but flag wasn't cleared
+    global is_sending
+    if is_sending and not alive:
+        is_sending = False
+    return jsonify({"is_sending": alive})
+
+
 @app.route("/status")
 def status_stream():
     q: queue.Queue = queue.Queue(maxsize=200)

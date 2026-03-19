@@ -515,6 +515,15 @@ textarea::placeholder {
 }
 .btn--warning:hover { background: #e6a03e; }
 
+.btn--reset {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    padding: 0.5rem 1.25rem;
+    font-size: 0.82rem;
+}
+.btn--reset:hover { color: var(--text-primary); border-color: var(--text-secondary); }
+
 /* ---------- Progress ---------- */
 .progress-wrap {
     width: 100%;
