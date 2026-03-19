@@ -70,13 +70,23 @@ CHROMEDRIVER_PATH = _find_binary("CHROMEDRIVER_PATH", [
     "/usr/local/bin/chromedriver",
 ])
 
+# On Windows/Mac (local use): always use webdriver-manager so Chrome driver is auto-downloaded
+# On Linux servers: use system chromedriver if found
+if sys.platform == "win32" or sys.platform == "darwin":
+    USE_WEBDRIVER_MANAGER = os.environ.get("USE_WEBDRIVER_MANAGER", "1").strip().lower() in {"1", "true", "yes", "on"}
+else:
+    USE_WEBDRIVER_MANAGER = os.environ.get(
+        "USE_WEBDRIVER_MANAGER",
+        "0" if CHROMEDRIVER_PATH else "1"
+    ).strip().lower() in {"1", "true", "yes", "on"}
+
+# ── Globals ────────────────────────────────────────────────
+
 # Disable webdriver-manager if we found a system chromedriver
 USE_WEBDRIVER_MANAGER = os.environ.get(
     "USE_WEBDRIVER_MANAGER",
     "0" if CHROMEDRIVER_PATH else "1"
 ).strip().lower() in {"1", "true", "yes", "on"}
-
-# ── Globals ────────────────────────────────────────────────
 driver = None
 driver_lock = threading.Lock()
 status_queues: list[queue.Queue] = []
