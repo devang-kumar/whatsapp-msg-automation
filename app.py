@@ -11,6 +11,7 @@ import json
 import os
 import queue
 import random
+import sys
 import subprocess
 import threading
 import time
@@ -25,6 +26,7 @@ from selenium.common.exceptions import (
     TimeoutException,
     WebDriverException,
 )
+
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
@@ -35,6 +37,15 @@ from webdriver_manager.chrome import ChromeDriverManager
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
+
+# ── Config (env) ─────────────────────────────────────────────
+# Note: This app keeps state in-process (globals). If you deploy behind gunicorn,
+# you must run with a single worker process.
+HEADLESS = os.environ.get("HEADLESS", "0").strip().lower() in {"1", "true", "yes", "on"}
+CHROME_BINARY = os.environ.get("CHROME_BINARY", "").strip()  # e.g. /usr/bin/google-chrome
+CHROMEDRIVER_PATH = os.environ.get("CHROMEDRIVER_PATH", "").strip()  # e.g. /app/.chromedriver/bin/chromedriver
+USE_WEBDRIVER_MANAGER = os.environ.get("USE_WEBDRIVER_MANAGER", "1").strip().lower() in {"1", "true", "yes", "on"}
+CHROME_USER_DATA_DIR = os.environ.get("CHROME_USER_DATA_DIR", "").strip()
 
 # ── Globals ────────────────────────────────────────────────
 driver = None
@@ -64,6 +75,8 @@ def broadcast_status(event: str, data: dict):
 
 # ── Chrome / Selenium ─────────────────────────────────────
 def kill_stale_chromedriver():
+    if sys.platform != "win32":
+        return
     try:
         subprocess.run(
             ["taskkill", "/F", "/IM", "chromedriver.exe"],
@@ -71,6 +84,19 @@ def kill_stale_chromedriver():
         )
     except Exception:
         pass
+
+
+def _default_profile_dir() -> Path:
+    if CHROME_USER_DATA_DIR:
+        return Path(CHROME_USER_DATA_DIR)
+    if sys.platform == "win32":
+        return Path.home() / "AppData" / "Local" / "WhatsAppBulkProfile"
+    # Linux/macOS — use /data/wa_profile if it exists (Render persistent disk),
+    # otherwise fall back to a writable cache dir
+    render_disk = Path("/data/wa_profile")
+    if render_disk.parent.exists():
+        return render_disk
+    return Path.home() / ".cache" / "whatsapp_bulk_profile"
 
 
 def get_or_create_driver():
@@ -89,17 +115,18 @@ def get_or_create_driver():
 
         kill_stale_chromedriver()
 
-        profile_dir = Path.home() / "AppData" / "Local" / "WhatsAppBulkProfile"
+        profile_dir = _default_profile_dir()
         profile_dir.mkdir(parents=True, exist_ok=True)
-        lock_file = profile_dir / "SingletonLock"
-        if lock_file.exists():
-            try:
-                lock_file.unlink()
-            except Exception:
-                pass
+        # Chrome profile lock handling (mostly needed on Windows)
+        for lock_name in ("SingletonLock", "SingletonCookie", "SingletonSocket"):
+            lock_file = profile_dir / lock_name
+            if lock_file.exists():
+                try:
+                    lock_file.unlink()
+                except Exception:
+                    pass
 
         chrome_options = Options()
-        chrome_options.add_argument("--start-maximized")
         chrome_options.add_argument(f"--user-data-dir={profile_dir}")
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
@@ -108,7 +135,25 @@ def get_or_create_driver():
         chrome_options.add_argument("--remote-debugging-port=0")
         chrome_options.add_experimental_option("excludeSwitches", ["enable-logging"])
 
-        service = Service(ChromeDriverManager().install())
+        if CHROME_BINARY:
+            chrome_options.binary_location = CHROME_BINARY
+
+        if HEADLESS:
+            # Required for most server deployments (no GUI available).
+            chrome_options.add_argument("--headless=new")
+            chrome_options.add_argument("--window-size=1365,768")
+        else:
+            chrome_options.add_argument("--start-maximized")
+
+        if CHROMEDRIVER_PATH:
+            service = Service(CHROMEDRIVER_PATH)
+        else:
+            if not USE_WEBDRIVER_MANAGER:
+                raise RuntimeError(
+                    "CHROMEDRIVER_PATH is not set and USE_WEBDRIVER_MANAGER=0. "
+                    "Set CHROMEDRIVER_PATH (recommended for deployment) or enable webdriver-manager."
+                )
+            service = Service(ChromeDriverManager().install())
         driver = webdriver.Chrome(service=service, options=chrome_options)
         return driver
 
@@ -146,7 +191,7 @@ def send_message(drv, phone: str, message: str) -> bool:
 
 
 # ── Sending Worker ─────────────────────────────────────────
-def sending_worker(numbers: list[str], message: str):
+def sending_worker(numbers: list[str], message: str, delay_seconds: int):
     global is_sending, should_stop, is_paused
     is_sending = True
     should_stop = False
@@ -225,7 +270,10 @@ def sending_worker(numbers: list[str], message: str):
                     break
 
             if sent and idx < total and not should_stop:
-                delay = random.randint(5, 8)
+                # Small jitter helps reduce "robotic" timings, but keep user control as the base.
+                base = max(1, int(delay_seconds))
+                jitter = random.randint(0, 2)
+                delay = base + jitter
                 broadcast_status("log", {"message": f"⏳ Waiting {delay}s before next message …"})
                 time.sleep(delay)
 
@@ -317,13 +365,19 @@ def send():
 
     numbers = data.get("numbers", [])
     message = data.get("message", "").strip()
+    delay_seconds = data.get("delay_seconds", 5)
 
     if not numbers:
         return jsonify({"error": "No phone numbers provided."}), 400
     if not message:
         return jsonify({"error": "Message cannot be empty."}), 400
+    try:
+        delay_seconds = int(delay_seconds)
+    except Exception:
+        delay_seconds = 5
+    delay_seconds = max(1, min(delay_seconds, 60))
 
-    send_thread = threading.Thread(target=sending_worker, args=(numbers, message), daemon=True)
+    send_thread = threading.Thread(target=sending_worker, args=(numbers, message, delay_seconds), daemon=True)
     send_thread.start()
 
     return jsonify({"status": "started", "count": len(numbers)})

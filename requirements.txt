@@ -1,4 +1,4 @@
-flask
-selenium
-webdriver-manager
-gunicorn
+flask>=3.0,<4
+selenium>=4.0,<5
+webdriver-manager>=4.0,<5
+gunicorn>=21,<23

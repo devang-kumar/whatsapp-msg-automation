@@ -174,7 +174,11 @@
         fetch("/send", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ numbers: phoneNumbers, message }),
+            body: JSON.stringify({
+                numbers: phoneNumbers,
+                message,
+                delay_seconds: +delayInput.value || 5,
+            }),
         })
         .then(r => r.json())
         .then(data => {
