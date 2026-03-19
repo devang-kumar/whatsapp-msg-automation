@@ -1,7 +1,0 @@
-[build]
-builder = "nixpacks"
-
-[deploy]
-startCommand = "/opt/venv/bin/gunicorn -w 1 --threads 8 -b 0.0.0.0:$PORT app:app"
-restartPolicyType = "ON_FAILURE"
-restartPolicyMaxRetries = 3
