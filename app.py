@@ -42,10 +42,39 @@ app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
 # Note: This app keeps state in-process (globals). If you deploy behind gunicorn,
 # you must run with a single worker process.
 HEADLESS = os.environ.get("HEADLESS", "0").strip().lower() in {"1", "true", "yes", "on"}
-CHROME_BINARY = os.environ.get("CHROME_BINARY", "").strip()  # e.g. /usr/bin/google-chrome
-CHROMEDRIVER_PATH = os.environ.get("CHROMEDRIVER_PATH", "").strip()  # e.g. /app/.chromedriver/bin/chromedriver
-USE_WEBDRIVER_MANAGER = os.environ.get("USE_WEBDRIVER_MANAGER", "1").strip().lower() in {"1", "true", "yes", "on"}
+# Auto-enable headless on Linux servers (no display available)
+if not HEADLESS and sys.platform != "win32" and not os.environ.get("DISPLAY"):
+    HEADLESS = True
 CHROME_USER_DATA_DIR = os.environ.get("CHROME_USER_DATA_DIR", "").strip()
+
+# Auto-detect Chrome/Chromedriver — check common Linux paths if env vars not set
+def _find_binary(env_key: str, candidates: list[str]) -> str:
+    val = os.environ.get(env_key, "").strip()
+    if val:
+        return val
+    for path in candidates:
+        if Path(path).exists():
+            return path
+    return ""
+
+CHROME_BINARY = _find_binary("CHROME_BINARY", [
+    "/nix/var/nix/profiles/default/bin/chromium",
+    "/usr/bin/chromium",
+    "/usr/bin/chromium-browser",
+    "/usr/bin/google-chrome",
+])
+
+CHROMEDRIVER_PATH = _find_binary("CHROMEDRIVER_PATH", [
+    "/nix/var/nix/profiles/default/bin/chromedriver",
+    "/usr/bin/chromedriver",
+    "/usr/local/bin/chromedriver",
+])
+
+# Disable webdriver-manager if we found a system chromedriver
+USE_WEBDRIVER_MANAGER = os.environ.get(
+    "USE_WEBDRIVER_MANAGER",
+    "0" if CHROMEDRIVER_PATH else "1"
+).strip().lower() in {"1", "true", "yes", "on"}
 
 # ── Globals ────────────────────────────────────────────────
 driver = None
