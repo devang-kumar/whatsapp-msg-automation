@@ -450,9 +450,9 @@ def reset_session():
 @app.route("/session-status")
 def session_status():
     """Returns whether a send session is currently active."""
+    global is_sending
     alive = is_sending and send_thread is not None and send_thread.is_alive()
     # Auto-heal: thread died but flag wasn't cleared
-    global is_sending
     if is_sending and not alive:
         is_sending = False
     return jsonify({"is_sending": alive})
