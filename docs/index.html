@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Bulk Messenger — Free Download</title>
+    <meta name="description" content="Send WhatsApp messages to multiple contacts at once. Free desktop app for Windows.">
+    <meta property="og:title" content="WhatsApp Bulk Messenger">
+    <meta property="og:description" content="Send WhatsApp messages to multiple contacts at once. Free, private, no subscription.">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --green: #25D366;
+            --green-dark: #128C7E;
+            --teal: #075E54;
+            --bg: #0b0f14;
+            --card: #111820;
+            --border: rgba(255,255,255,0.08);
+            --text: #e8ecf1;
+            --muted: #8b95a5;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            width: 600px; height: 600px;
+            background: var(--green);
+            border-radius: 50%;
+            filter: blur(140px);
+            opacity: 0.07;
+            top: -150px; right: -100px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .wrap { max-width: 860px; margin: 0 auto; padding: 3rem 1.5rem 5rem; position: relative; z-index: 1; }
+
+        /* Hero */
+        .hero { text-align: center; padding: 3rem 0 2.5rem; }
+        .hero-icon { font-size: 4rem; display: block; margin-bottom: 1rem; animation: float 3s ease-in-out infinite; }
+        @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+
+        .hero h1 {
+            font-size: 2.6rem; font-weight: 800; line-height: 1.15;
+            background: linear-gradient(135deg, var(--green), #6fe89d);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+
+        .hero p { color: var(--muted); font-size: 1.05rem; margin-top: 0.75rem; max-width: 520px; margin-inline: auto; }
+
+        .badges { display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; margin-top: 1rem; }
+        .badge {
+            padding: 0.3rem 0.85rem;
+            background: rgba(37,211,102,0.08);
+            border: 1px solid rgba(37,211,102,0.2);
+            border-radius: 20px;
+            font-size: 0.78rem; color: var(--green); font-weight: 500;
+        }
+
+        /* Download buttons */
+        .dl-section { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 2.5rem; }
+
+        .btn-dl {
+            display: inline-flex; align-items: center; gap: 0.6rem;
+            padding: 0.9rem 2rem;
+            border-radius: 12px; border: none; cursor: pointer;
+            font-size: 1rem; font-weight: 700; text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .btn-dl--primary {
+            background: linear-gradient(135deg, var(--green), var(--green-dark));
+            color: #000;
+            box-shadow: 0 4px 24px rgba(37,211,102,0.25);
+        }
+        .btn-dl--primary:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(37,211,102,0.4); }
+
+        .btn-dl--secondary {
+            background: var(--card);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        .btn-dl--secondary:hover { border-color: rgba(37,211,102,0.3); transform: translateY(-2px); }
+
+        .btn-dl .icon { font-size: 1.3rem; }
+        .btn-dl .sub { font-size: 0.7rem; font-weight: 400; opacity: 0.7; display: block; margin-top: 1px; }
+
+        /* Features */
+        .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-top: 3.5rem; }
+
+        .feat {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.4rem;
+            transition: border-color 0.2s;
+        }
+        .feat:hover { border-color: rgba(37,211,102,0.2); }
+        .feat-icon { font-size: 1.8rem; margin-bottom: 0.6rem; }
+        .feat h3 { font-size: 0.95rem; font-weight: 600; margin-bottom: 0.3rem; }
+        .feat p { font-size: 0.82rem; color: var(--muted); line-height: 1.55; }
+
+        /* Steps */
+        .steps-title { text-align: center; font-size: 1.3rem; font-weight: 700; margin: 3.5rem 0 1.5rem; }
+        .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; }
+
+        .step {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.25rem;
+            text-align: center;
+        }
+        .step-num {
+            width: 36px; height: 36px; border-radius: 50%;
+            background: rgba(37,211,102,0.12);
+            border: 1px solid rgba(37,211,102,0.25);
+            color: var(--green); font-weight: 700; font-size: 0.95rem;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 0.75rem;
+        }
+        .step h4 { font-size: 0.88rem; font-weight: 600; margin-bottom: 0.3rem; }
+        .step p { font-size: 0.78rem; color: var(--muted); line-height: 1.5; }
+
+        /* Requirements */
+        .req {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.4rem 1.6rem;
+            margin-top: 2.5rem;
+            font-size: 0.85rem;
+        }
+        .req h3 { font-size: 0.9rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+        .req ul { list-style: none; display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; }
+        .req li::before { content: "✓ "; color: var(--green); font-weight: 700; }
+        .req li { color: var(--muted); }
+
+        /* Footer */
+        footer { text-align: center; margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--border); font-size: 0.78rem; color: var(--muted); }
+        footer a { color: var(--green); text-decoration: none; }
+
+        @media(max-width:600px) {
+            .hero h1 { font-size: 1.8rem; }
+            .btn-dl { width: 100%; justify-content: center; }
+            .dl-section { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+<div class="wrap">
+
+    <div class="hero">
+        <span class="hero-icon">💬</span>
+        <h1>WhatsApp Bulk Messenger</h1>
+        <p>Send messages to hundreds of WhatsApp contacts in one go. Free, private, runs on your PC.</p>
+        <div class="badges">
+            <span class="badge">✨ 100% Free</span>
+            <span class="badge">🔒 Private — runs locally</span>
+            <span class="badge">💻 Windows</span>
+            <span class="badge">🚀 No subscription</span>
+        </div>
+
+        <div class="dl-section">
+            <a class="btn-dl btn-dl--primary" href="https://github.com/devang-kumar/whatsapp-msg-automation/releases/latest/download/WhatsApp.Bulk.Messenger.exe" id="dl-exe">
+                <span class="icon">⬇️</span>
+                <span>Download for Windows<span class="sub">.exe — one click install</span></span>
+            </a>
+            <a class="btn-dl btn-dl--secondary" href="https://github.com/devang-kumar/whatsapp-msg-automation/archive/refs/heads/main.zip">
+                <span class="icon">📦</span>
+                <span>Download Source<span class="sub">.zip — run with Python</span></span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Features -->
+    <div class="features">
+        <div class="feat">
+            <div class="feat-icon">📱</div>
+            <h3>Bulk Messaging</h3>
+            <p>Send to hundreds of contacts at once. Paste numbers or upload a CSV file.</p>
+        </div>
+        <div class="feat">
+            <div class="feat-icon">🔒</div>
+            <h3>100% Private</h3>
+            <p>Everything runs on your computer. No data sent to any server. No accounts needed.</p>
+        </div>
+        <div class="feat">
+            <div class="feat-icon">⏸</div>
+            <h3>Pause & Resume</h3>
+            <p>Pause sending anytime and resume where you left off. Stop with one click.</p>
+        </div>
+        <div class="feat">
+            <div class="feat-icon">📊</div>
+            <h3>Live Progress</h3>
+            <p>Real-time log shows exactly what's happening — sent, failed, retrying.</p>
+        </div>
+        <div class="feat">
+            <div class="feat-icon">📁</div>
+            <h3>CSV Import</h3>
+            <p>Upload a CSV with phone numbers. Numbers are extracted and cleaned automatically.</p>
+        </div>
+        <div class="feat">
+            <div class="feat-icon">⚙️</div>
+            <h3>Custom Delay</h3>
+            <p>Set delay between messages to avoid getting flagged by WhatsApp.</p>
+        </div>
+    </div>
+
+    <!-- How it works -->
+    <div class="steps-title">How it works</div>
+    <div class="steps">
+        <div class="step">
+            <div class="step-num">1</div>
+            <h4>Download & Open</h4>
+            <p>Download the .exe and double-click to launch. No installation needed.</p>
+        </div>
+        <div class="step">
+            <div class="step-num">2</div>
+            <h4>Add Numbers</h4>
+            <p>Paste phone numbers or upload a CSV file with your contacts.</p>
+        </div>
+        <div class="step">
+            <div class="step-num">3</div>
+            <h4>Type Message</h4>
+            <p>Write the message you want to send to all contacts.</p>
+        </div>
+        <div class="step">
+            <div class="step-num">4</div>
+            <h4>Scan QR Once</h4>
+            <p>Scan the WhatsApp QR code with your phone. Only needed once.</p>
+        </div>
+        <div class="step">
+            <div class="step-num">5</div>
+            <h4>Start Sending</h4>
+            <p>Hit send and watch messages go out automatically with live progress.</p>
+        </div>
+    </div>
+
+    <!-- Requirements -->
+    <div class="req">
+        <h3>Requirements</h3>
+        <ul>
+            <li>Windows 10 or 11</li>
+            <li>Google Chrome installed</li>
+            <li>Active WhatsApp account</li>
+            <li>Internet connection</li>
+        </ul>
+    </div>
+
+    <footer>
+        <p>Open source — <a href="https://github.com/devang-kumar/whatsapp-msg-automation" target="_blank">View on GitHub</a> &nbsp;·&nbsp; Not affiliated with WhatsApp or Meta.</p>
+    </footer>
+
+</div>
+</body>
+</html>
