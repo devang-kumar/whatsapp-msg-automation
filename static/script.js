@@ -352,18 +352,16 @@
         .then(r => r.json())
         .then(data => {
             if (data.is_sending) {
-                // Real session running — reconnect SSE
                 sendBtn.disabled = true;
                 pauseBtn.style.display = "inline-flex";
                 stopBtn.style.display = "inline-flex";
+                if (data.is_paused) pauseBtn.innerHTML = "▶️ Resume";
                 progressWrap.classList.add("visible");
                 statusLog.classList.add("visible");
                 connectSSE();
                 addLog("🔄 Reconnected to active session …", "log-warn");
-            } else {
-                // No session — make sure UI is clean
-                resetUI();
             }
+            // else: nothing running, UI stays in default ready state
         })
         .catch(() => {});
 

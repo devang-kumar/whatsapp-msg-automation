@@ -449,13 +449,18 @@ def reset_session():
 
 @app.route("/session-status")
 def session_status():
-    """Returns whether a send session is currently active."""
-    global is_sending
-    alive = is_sending and send_thread is not None and send_thread.is_alive()
-    # Auto-heal: thread died but flag wasn't cleared
+    global is_sending, is_paused
+    # A session is truly alive only if the thread exists and is running
+    alive = (
+        is_sending
+        and send_thread is not None
+        and send_thread.is_alive()
+    )
+    # Auto-heal stale flag
     if is_sending and not alive:
         is_sending = False
-    return jsonify({"is_sending": alive})
+        is_paused = False
+    return jsonify({"is_sending": alive, "is_paused": is_paused})
 
 
 @app.route("/status")
@@ -483,10 +488,9 @@ def screenshot():
     """Take a screenshot of the current browser state (for QR code scanning)."""
     try:
         drv = get_or_create_driver()
-        # If not on WhatsApp Web, navigate there
         if "web.whatsapp.com" not in drv.current_url:
             drv.get("https://web.whatsapp.com")
-            time.sleep(3)
+            time.sleep(5)  # wait for QR to render
         png = drv.get_screenshot_as_png()
         return Response(png, mimetype="image/png")
     except Exception as e:
